@@ -5,7 +5,7 @@
 #define HEIGHT 800
 
 typedef struct {
-    SDL_rect pixel;
+    SDL_Rect pixel
 } Corner;
 
 
