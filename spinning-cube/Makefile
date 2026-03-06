@@ -8,7 +8,7 @@ TARGET_NAME := cube
 # Compiler settings for pure C
 CC       := gcc
 CFLAGS   := -Wall -Wextra -O2 -g
-LDFLAGS  := 
+LDFLAGS  := -lm
 
 # --- SDL2 CONFIGURATION ---
 # The $(shell ...) command in Make acts exactly like `backticks` in your terminal

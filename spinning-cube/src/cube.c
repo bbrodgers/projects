@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <math.h>
 #include <SDL2/SDL.h>
 
 #define WIDTH 800
@@ -51,10 +52,11 @@ int init_window(){
     return 0;
 }
 //Replaces render_cube_3d
-void project_points() {
-    for (size_t i = 0; i < ARRAY_SIZE(cube_3d); i++){
-        float p_x = cube_3d[i].x/cube_3d[i].z * FOCAL_LENGTH;
-        float p_y = cube_3d[i].y/cube_3d[i].z * FOCAL_LENGTH;
+void project_points(point *cube, size_t size) {
+    for (size_t i = 0; i < size; i++){
+        if (cube[i].z == 0) continue;
+        float p_x = cube[i].x/cube[i].z * FOCAL_LENGTH;
+        float p_y = cube[i].y/cube[i].z * FOCAL_LENGTH;
         
         points_2d[i].x = p_x + (WIDTH / 2.0f);
         points_2d[i].y = -p_y + (HEIGHT / 2.0f);
@@ -68,20 +70,20 @@ void draw_point(SDL_Renderer *renderer, int x, int y){
 
 void init_cube(){
     //Front Face
-    cube_3d[0] = (point){-100, 100, 150};  //Top left front
-    cube_3d[1] = (point){-100, -100, 150}; //Bottom left front
-    cube_3d[2] = (point){100, -100, 150};   //Bottom right front
-    cube_3d[3] = (point){100, 100, 150};  //Top right front
+    cube_3d[0] = (point){-100, 100, -100};  //Top left front
+    cube_3d[1] = (point){-100, -100, -100}; //Bottom left front
+    cube_3d[2] = (point){100, -100, -100};   //Bottom right front
+    cube_3d[3] = (point){100, 100, -100};  //Top right front
     //Back Face
-    cube_3d[4] = (point){-100, 100, 350};  //Top left back
-    cube_3d[5] = (point){-100, -100, 350}; //Bottom left back
-    cube_3d[6] = (point){100, -100, 350};   //Bottom right back
-    cube_3d[7] = (point){100, 100, 350};  //Top right back
+    cube_3d[4] = (point){-100, 100, 100};  //Top left back
+    cube_3d[5] = (point){-100, -100, 100}; //Bottom left back
+    cube_3d[6] = (point){100, -100, 100};   //Bottom right back
+    cube_3d[7] = (point){100, 100, 100};  //Top right back
 }
 
-void translate_z(float dz){
-    for(size_t i = 0; i < ARRAY_SIZE(cube_3d); i++){
-        cube_3d[i].z += dz;
+void translate_z(point *cube, size_t size, float dz){
+    for(size_t i = 0; i < size; i++){
+        cube[i].z += dz;
     }
 }
 
@@ -101,6 +103,25 @@ void draw_lines(int edges[][2], int length){
     }
 }
 
+//Rotation matrix
+void rotate_x(point *points, point *arrOut, size_t size, float theta){
+    for(size_t i = 0; i < size; i++){
+        arrOut[i].x = points[i].x;
+        arrOut[i].y = cos(theta) * points[i].y - sin(theta) * points[i].z;
+        arrOut[i].z = sin(theta) * points[i].y + cos(theta) * points[i].z;
+    }
+}
+
+void rotate_y(point *points, point *arrOut, size_t size, float theta){
+    for(size_t i = 0; i < size; i++){
+        float x_in = points[i].x;
+        float z_in = points[i].z;
+
+        arrOut[i].x = cos(theta) * x_in + sin(theta) * z_in;
+        arrOut[i].y = points[i].y;
+        arrOut[i].z = -sin(theta) * x_in + cos(theta) * z_in;
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -122,6 +143,10 @@ int main(int argc, char *argv[])
 };
 
     float dz = 0.0f;
+    float angleX = 0.0f;
+    float angleY = 0.0f;
+    point cube_rot[8];
+    size_t cube_size = 8;
 
     while (running) {
         // 1. Process OS and Window events
@@ -138,12 +163,18 @@ int main(int argc, char *argv[])
 
         //Do stuff here
         init_cube();
-        translate_z(dz);
-        project_points();
+        //need to do this differently... among other things :(
+        //cant sequentially call rotations because I either have to pass the modified cube around or only one applies. This is probably what the unified rotation matrix is for...
+        rotate_x(cube_3d, cube_rot, cube_size, angleX * 0.017453292519943295f);
+        rotate_y(cube_rot, cube_rot, cube_size, angleY * 0.017453292519943295f);
+        translate_z(cube_rot, cube_size, 400.0f);
+        //translate_z(cube_rot, cube_size, dz);
+        project_points(cube_rot, cube_size);
         render_points();
-        //apply_rotation();
         draw_lines(edges, 12);
         dz++;
+        angleX += 0.5f;
+        angleY += 0.7f;
         SDL_RenderPresent(renderer);
 
         // 4. Brief pause to prevent the loop from maxing out your CPU
