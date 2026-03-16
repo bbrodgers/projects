@@ -106,9 +106,12 @@ void draw_lines(int edges[][2], int length){
 //Rotation matrix
 void rotate_x(point *points, point *arrOut, size_t size, float theta){
     for(size_t i = 0; i < size; i++){
+        float y_in = points[i].y;
+        float z_in = points[i].z;
+        
         arrOut[i].x = points[i].x;
-        arrOut[i].y = cos(theta) * points[i].y - sin(theta) * points[i].z;
-        arrOut[i].z = sin(theta) * points[i].y + cos(theta) * points[i].z;
+        arrOut[i].y = cos(theta) * y_in + sin(theta) * z_in;
+        arrOut[i].z = -sin(theta) * y_in + cos(theta) * z_in;
     }
 }
 
@@ -120,6 +123,17 @@ void rotate_y(point *points, point *arrOut, size_t size, float theta){
         arrOut[i].x = cos(theta) * x_in + sin(theta) * z_in;
         arrOut[i].y = points[i].y;
         arrOut[i].z = -sin(theta) * x_in + cos(theta) * z_in;
+    }
+}
+
+void rotate_z(point *points, point *arrOut, size_t size, float theta){
+    for(size_t i = 0; i < size; i++){
+        float x_in = points[i].x;
+        float y_in = points[i].y;
+
+        arrOut[i].x = cos(theta) * x_in + sin(theta) * y_in;
+        arrOut[i].y = -sin(theta) * x_in + cos(theta) * y_in;
+        arrOut[i].z = points[i].z; 
     }
 }
 
@@ -142,9 +156,12 @@ int main(int argc, char *argv[])
     {0, 4}, {1, 5}, {2, 6}, {3, 7}
 };
 
+    init_cube();
+
     float dz = 0.0f;
     float angleX = 0.0f;
     float angleY = 0.0f;
+    float angleZ = 0.0f;
     point cube_rot[8];
     size_t cube_size = 8;
 
@@ -162,11 +179,11 @@ int main(int argc, char *argv[])
         SDL_SetRenderDrawColor(renderer, 95, 168, 211, 255);
 
         //Do stuff here
-        init_cube();
         //need to do this differently... among other things :(
         //cant sequentially call rotations because I either have to pass the modified cube around or only one applies. This is probably what the unified rotation matrix is for...
         rotate_x(cube_3d, cube_rot, cube_size, angleX * 0.017453292519943295f);
         rotate_y(cube_rot, cube_rot, cube_size, angleY * 0.017453292519943295f);
+        rotate_z(cube_rot, cube_rot, cube_size, angleZ * 0.017453292519943295f);
         translate_z(cube_rot, cube_size, 400.0f);
         //translate_z(cube_rot, cube_size, dz);
         project_points(cube_rot, cube_size);
@@ -175,6 +192,7 @@ int main(int argc, char *argv[])
         dz++;
         angleX += 0.5f;
         angleY += 0.7f;
+        angleZ += 0.8f;
         SDL_RenderPresent(renderer);
 
         // 4. Brief pause to prevent the loop from maxing out your CPU
