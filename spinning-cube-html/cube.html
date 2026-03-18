@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spinning 3D Cube</title>
+    <style>
+        body {
+            /* Centers the canvas on the screen and gives a dark background */
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        canvas {
+            /* Adds a subtle shadow to the canvas boundary */
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="renderCanvas" width="800" height="800"></canvas>
+
+    <script>
+        // --- Constants & Globals ---
+        const canvas = document.getElementById('renderCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const WIDTH = 800;
+        const HEIGHT = 800;
+        const PIXEL_WIDTH = 5;
+        const PIXEL_HEIGHT = 5;
+        const FOCAL_LENGTH = 400.0;
+
+        // Base 3D cube vertices
+        let cube_3d = [];
+        // Projected 2D points
+        let points_2d = new Array(8).fill(null).map(() => ({ x: 0, y: 0 }));
+
+        const edges = [
+            // Front Face
+            [0, 1], [1, 2], [2, 3], [3, 0],
+            // Back Face
+            [4, 5], [5, 6], [6, 7], [7, 4],
+            // Connecting Edges
+            [0, 4], [1, 5], [2, 6], [3, 7]
+        ];
+
+        let angleX = 0.0;
+        let angleY = 0.0;
+        let angleZ = 0.0;
+
+        // --- Initialization ---
+        function init_cube() {
+            cube_3d = [
+                // Front Face
+                { x: -100, y: 100, z: -100 }, // 0: Top left front
+                { x: -100, y: -100, z: -100 }, // 1: Bottom left front
+                { x: 100, y: -100, z: -100 }, // 2: Bottom right front
+                { x: 100, y: 100, z: -100 }, // 3: Top right front
+                // Back Face
+                { x: -100, y: 100, z: 100 },  // 4: Top left back
+                { x: -100, y: -100, z: 100 },  // 5: Bottom left back
+                { x: 100, y: -100, z: 100 },  // 6: Bottom right back
+                { x: 100, y: 100, z: 100 }   // 7: Top right back
+            ];
+        }
+
+        // --- Math & Transformation ---
+        
+        // Returns a new array of rotated points (solves the mutation issue)
+        function rotate_x(points, theta) {
+            return points.map(p => ({
+                x: p.x,
+                y: Math.cos(theta) * p.y + Math.sin(theta) * p.z,
+                z: -Math.sin(theta) * p.y + Math.cos(theta) * p.z
+            }));
+        }
+
+        function rotate_y(points, theta) {
+            return points.map(p => ({
+                x: Math.cos(theta) * p.x + Math.sin(theta) * p.z,
+                y: p.y,
+                z: -Math.sin(theta) * p.x + Math.cos(theta) * p.z
+            }));
+        }
+
+        function rotate_z(points, theta) {
+            return points.map(p => ({
+                x: Math.cos(theta) * p.x + Math.sin(theta) * p.y,
+                y: -Math.sin(theta) * p.x + Math.cos(theta) * p.y,
+                z: p.z
+            }));
+        }
+
+        function translate_z(points, dz) {
+            return points.map(p => ({ ...p, z: p.z + dz }));
+        }
+
+        // --- Projection ---
+        function project_points(points) {
+            for (let i = 0; i < points.length; i++) {
+                if (points[i].z === 0) continue;
+                
+                // Perspective division
+                let p_x = (points[i].x / points[i].z) * FOCAL_LENGTH;
+                let p_y = (points[i].y / points[i].z) * FOCAL_LENGTH;
+
+                // Center on screen
+                points_2d[i].x = p_x + (WIDTH / 2.0);
+                points_2d[i].y = -p_y + (HEIGHT / 2.0);
+            }
+        }
+
+        // --- Rendering ---
+        function render_points() {
+            ctx.fillStyle = "rgb(95, 168, 211)"; // Cube color
+            for (let i = 0; i < points_2d.length; i++) {
+                ctx.fillRect(
+                    points_2d[i].x - PIXEL_WIDTH / 2, 
+                    points_2d[i].y - PIXEL_HEIGHT / 2, 
+                    PIXEL_WIDTH, 
+                    PIXEL_HEIGHT
+                );
+            }
+        }
+
+        function draw_lines() {
+            ctx.strokeStyle = "rgb(95, 168, 211)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            
+            for (let i = 0; i < edges.length; i++) {
+                let a = edges[i][0];
+                let b = edges[i][1];
+
+                ctx.moveTo(points_2d[a].x, points_2d[a].y);
+                ctx.lineTo(points_2d[b].x, points_2d[b].y);
+            }
+            
+            ctx.stroke(); // Commits the lines to the canvas
+        }
+
+        // --- Main Loop ---
+        function main_loop() {
+            // 1. Clear Screen (equivalent to SDL_RenderClear)
+            ctx.fillStyle = "rgb(50, 50, 50)";
+            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+            // 2. Calculate degrees to radians
+            let radX = angleX * (Math.PI / 180);
+            let radY = angleY * (Math.PI / 180);
+            let radZ = angleZ * (Math.PI / 180);
+
+            // 3. Apply Transformations sequentially
+            let cube_rot = rotate_x(cube_3d, radX);
+            cube_rot = rotate_y(cube_rot, radY);
+            cube_rot = rotate_z(cube_rot, radZ);
+            
+            // Push it forward in Z space so it's in front of the "camera"
+            cube_rot = translate_z(cube_rot, 400.0);
+
+            // 4. Project and Draw
+            project_points(cube_rot);
+            draw_lines();
+            render_points();
+
+            // 5. Update state for next frame
+            angleX += 0.5;
+            angleY += 0.7;
+            angleZ += 0.8;
+
+            // 6. Request next frame (Replaces SDL_Delay and the while loop)
+            requestAnimationFrame(main_loop);
+        }
+
+        // Initialize and kick off the loop
+        init_cube();
+        requestAnimationFrame(main_loop);
+
+    </script>
+</body>
+</html>
